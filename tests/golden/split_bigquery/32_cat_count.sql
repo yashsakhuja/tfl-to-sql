@@ -1,0 +1,6 @@
+WITH
+s0 AS (
+  SELECT * EXCEPT (`CUSTOMER_ID`), `CUSTOMER_ID` AS `CUSTOMER_ID_REM`
+  FROM `count_of_categories`
+)
+SELECT * FROM s0

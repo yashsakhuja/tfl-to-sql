@@ -1,0 +1,18 @@
+WITH
+jl0 AS (
+  SELECT * EXCEPT (`PROMOCODE`), `PROMOCODE` AS `TOTAL_PROMOCODES_USED`
+  FROM `promocodes`
+),
+core AS (
+  SELECT
+    l.*,
+    r.* EXCEPT (`CUSTOMER_ID`)
+  FROM jl0 AS l
+  RIGHT JOIN `join_6` AS r
+    ON l.`CUSTOMER_ID_REM` = r.`CUSTOMER_ID`
+),
+jpost0 AS (
+  SELECT * EXCEPT (`CUSTOMER_ID_REM`)
+  FROM core
+)
+SELECT * FROM jpost0

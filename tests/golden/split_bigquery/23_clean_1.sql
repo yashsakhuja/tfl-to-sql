@@ -1,0 +1,10 @@
+WITH
+s0 AS (
+  SELECT *,
+    CASE
+  WHEN `AMOUNT_PAID_EXCL_TAX` > 0 THEN 1
+  ELSE 0
+  END AS `CATEGORY_FLAG`
+  FROM `add_cat_group`
+)
+SELECT * FROM s0

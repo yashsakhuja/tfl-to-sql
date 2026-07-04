@@ -1,0 +1,10 @@
+WITH
+s0 AS (
+  SELECT * EXCEPT (`ORDER_ID`)
+  FROM `promocode_count`
+),
+s1 AS (
+  SELECT * EXCEPT (`CUSTOMER_ID`), `CUSTOMER_ID` AS `CUSTOMER_ID_REM`
+  FROM s0
+)
+SELECT * FROM s1

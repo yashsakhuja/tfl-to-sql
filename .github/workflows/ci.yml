@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dev dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check Code tools tests App
+
+      - name: Type check the core converter
+        run: mypy Code/tfl_to_sql.py
+
+      - name: Run tests (unit + golden-file regression)
+        run: pytest -v
+
+  # Sanity-check the CLI itself runs end-to-end against the sample flow,
+  # independent of the pytest suite — catches packaging/entry-point issues
+  # pytest wouldn't (e.g. the console_script wiring in pyproject.toml).
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Run the converter against the sample flow
+        run: |
+          python Code/tfl_to_sql.py "Tableau Prep Flows/FST Segmentation Prep.tfl" \
+            --mode bigquery --out /tmp/smoke_out --warnings-json /tmp/smoke_warnings.json
+          test -f /tmp/smoke_out/output_2.sql
+          test -f /tmp/smoke_warnings.json

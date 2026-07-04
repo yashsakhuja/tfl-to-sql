@@ -1,0 +1,39 @@
+WITH
+s0 AS (
+  SELECT *,
+    STRPOS(LOWER(TRIM(`CUSTOMER_EMAIL`)), "finisterre.com") > 0 OR STRPOS(LOWER(TRIM(`CUSTOMER_EMAIL`)), "finisterre.co.uk") > 0 AS `FST_EMAIL_FILTER`
+  FROM `rolling_date_calc`
+),
+s1 AS (
+  SELECT *
+  FROM s0
+  WHERE `FST_EMAIL_FILTER` = FALSE OR `FST_EMAIL_FILTER` IS NULL
+),
+s2 AS (
+  SELECT *,
+    -- cut-off date is 29th march, 2026
+  -- last day of FY25
+  `DATE` <= DATE("2026-03-29") AS `DATA_LIMITED_TO`
+  FROM s1
+),
+s3 AS (
+  SELECT *
+  FROM s2
+  WHERE `DATA_LIMITED_TO` IN (TRUE)
+),
+s4 AS (
+  SELECT *
+  FROM s3
+  WHERE `CHANNEL_GROUP` IN ('Online', 'Retail')
+),
+s5 AS (
+  SELECT *,
+    MAX(`CUSTOMER_EMAIL`) OVER (PARTITION BY `CUSTOMER_ID`) AS `FIXED_EMAIL`
+  FROM s4
+),
+s6 AS (
+  SELECT *
+  FROM s5
+  WHERE `FIXED_EMAIL` IS NOT NULL
+)
+SELECT * FROM s6

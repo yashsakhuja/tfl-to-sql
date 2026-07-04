@@ -1,0 +1,6 @@
+streamlit>=1.35.0
+
+# LLM providers — all optional; only the one you choose needs to be installed
+anthropic>=0.30.0
+openai>=1.0.0
+google-generativeai>=0.7.0

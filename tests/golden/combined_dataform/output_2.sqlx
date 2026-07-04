@@ -1,0 +1,1217 @@
+-- Flow: FST Segmentation Prep
+-- Source: FST Ecom & Retail Sales
+-- Output: Output 2
+
+config {
+  type: "table",
+  schema: "my_dataset",
+  name: "output_2",
+  description: "Final output from Tableau Prep flow"
+}
+
+WITH
+
+-- [CLEAN] Rolling Date Calc
+rolling_date_calc AS (
+  WITH
+  s0 AS (
+    SELECT *,
+      -- FY Week
+    DATE("2026-03-30") AS `END_OF_ANALYSIS_PERIOD`
+    FROM ${ref('fst_ecom_retail_sales_data_sources')}
+  ),
+  s1 AS (
+    SELECT *,
+      DATE(DATE_ADD(`END_OF_ANALYSIS_PERIOD`, INTERVAL -(`Parameters.03a2fddc-fdf5-4ecb-b9c2-aaf6f6d2abb1`) WEEK)) AS `START_OF_ANALYSIS_PERIOD_52W`
+    FROM s0
+  ),
+  s2 AS (
+    SELECT *,
+      DATE(DATE_ADD(`END_OF_ANALYSIS_PERIOD`, INTERVAL -(`Parameters.382690fa-a3cc-404a-8d4e-7305f732b199`) WEEK)) AS `START_OF_ANALYSIS_PERIOD_104W`
+    FROM s1
+  ),
+  s3 AS (
+    SELECT *,
+      DATE(DATE_ADD(`END_OF_ANALYSIS_PERIOD`, INTERVAL -(`Parameters.e7fc4ad8-153b-4cee-b575-c22753db54bb`) WEEK)) AS `START_OF_ANALYSIS_PERIOD_156W`
+    FROM s2
+  ),
+  s4 AS (
+    SELECT *,
+      DATE(DATE_ADD(`END_OF_ANALYSIS_PERIOD`, INTERVAL -(`Parameters.192a3229-d1ff-47b9-ae47-9a0b0c718cbd`) WEEK)) AS `START_OF_ANALYSIS_PERIOD_208W`
+    FROM s3
+  ),
+  s5 AS (
+    SELECT *,
+      DATE(DATE_ADD(`END_OF_ANALYSIS_PERIOD`, INTERVAL -(`Parameters.423040cf-51b5-466a-8017-344aa9c98a88`) WEEK)) AS `START_OF_ANALYSIS_PERIOD_260W`
+    FROM s4
+  ),
+  s6 AS (
+    SELECT *,
+      DATE(DATE_ADD(`END_OF_ANALYSIS_PERIOD`, INTERVAL -(13) WEEK)) AS `START_OF_ANALYSIS_PERIOD_13W`
+    FROM s5
+  )
+  SELECT * FROM s6
+),
+
+-- [CLEAN] Filters
+filters AS (
+  WITH
+  s0 AS (
+    SELECT *,
+      STRPOS(LOWER(TRIM(`CUSTOMER_EMAIL`)), "finisterre.com") > 0 OR STRPOS(LOWER(TRIM(`CUSTOMER_EMAIL`)), "finisterre.co.uk") > 0 AS `FST_EMAIL_FILTER`
+    FROM rolling_date_calc
+  ),
+  s1 AS (
+    SELECT *
+    FROM s0
+    WHERE `FST_EMAIL_FILTER` = FALSE OR `FST_EMAIL_FILTER` IS NULL
+  ),
+  s2 AS (
+    SELECT *,
+      -- cut-off date is 29th march, 2026
+    -- last day of FY25
+    `DATE` <= DATE("2026-03-29") AS `DATA_LIMITED_TO`
+    FROM s1
+  ),
+  s3 AS (
+    SELECT *
+    FROM s2
+    WHERE `DATA_LIMITED_TO` IN (TRUE)
+  ),
+  s4 AS (
+    SELECT *
+    FROM s3
+    WHERE `CHANNEL_GROUP` IN ('Online', 'Retail')
+  ),
+  s5 AS (
+    SELECT *,
+      MAX(`CUSTOMER_EMAIL`) OVER (PARTITION BY `CUSTOMER_ID`) AS `FIXED_EMAIL`
+    FROM s4
+  ),
+  s6 AS (
+    SELECT *
+    FROM s5
+    WHERE `FIXED_EMAIL` IS NOT NULL
+  )
+  SELECT * FROM s6
+),
+
+-- [CLEAN] RFM
+rfm AS (
+  WITH
+  s0 AS (
+    SELECT *,
+      -- cut-off date is 29th march, 2026
+    -- last day of FY25
+    ABS(DATE_DIFF(DATE("2026-03-29"), `LATEST_ORDER_DATE`, DAY)) AS `RECENCY`
+    FROM filters
+  ),
+  s1 AS (
+    SELECT *,
+      CASE
+    WHEN `DATE` >= `START_OF_ANALYSIS_PERIOD_52W` AND `DATE` <= `END_OF_ANALYSIS_PERIOD` THEN `ORDER_ID`
+    END AS `FREQUENCY_52W`
+    FROM s0
+  ),
+  s2 AS (
+    SELECT *,
+      CASE
+    WHEN `DATE` >= `START_OF_ANALYSIS_PERIOD_104W` AND `DATE` <= `END_OF_ANALYSIS_PERIOD` THEN `ORDER_ID`
+    END AS `FREQUENCY_104W`
+    FROM s1
+  ),
+  s3 AS (
+    SELECT *,
+      CASE
+    WHEN `DATE` >= `START_OF_ANALYSIS_PERIOD_156W` AND `DATE` <= `END_OF_ANALYSIS_PERIOD` THEN `ORDER_ID`
+    END AS `FREQUENCY_156W`
+    FROM s2
+  ),
+  s4 AS (
+    SELECT *,
+      CASE
+    WHEN `DATE` >= `START_OF_ANALYSIS_PERIOD_208W` AND `DATE` <= `END_OF_ANALYSIS_PERIOD` THEN `ORDER_ID`
+    END AS `FREQUENCY_208W`
+    FROM s3
+  ),
+  s5 AS (
+    SELECT *,
+      CASE
+    WHEN `DATE` >= `START_OF_ANALYSIS_PERIOD_260W` AND `DATE` <= `END_OF_ANALYSIS_PERIOD` THEN `ORDER_ID`
+    END AS `FREQUENCY_260W`
+    FROM s4
+  ),
+  s6 AS (
+    SELECT *,
+      CASE
+    WHEN `DATE` >= `START_OF_ANALYSIS_PERIOD_52W` AND `DATE` <= `END_OF_ANALYSIS_PERIOD` THEN `AMOUNT_PAID_EXCL_TAX`
+    END AS `MONETARY_52W`
+    FROM s5
+  ),
+  s7 AS (
+    SELECT *,
+      CASE
+    WHEN `DATE` >= `START_OF_ANALYSIS_PERIOD_104W` AND `DATE` <= `END_OF_ANALYSIS_PERIOD` THEN `AMOUNT_PAID_EXCL_TAX`
+    END AS `MONETARY_104W`
+    FROM s6
+  ),
+  s8 AS (
+    SELECT *,
+      CASE
+    WHEN `DATE` >= `START_OF_ANALYSIS_PERIOD_156W` AND `DATE` <= `END_OF_ANALYSIS_PERIOD` THEN `AMOUNT_PAID_EXCL_TAX`
+    END AS `MONETARY_156W`
+    FROM s7
+  ),
+  s9 AS (
+    SELECT *,
+      CASE
+    WHEN `DATE` >= `START_OF_ANALYSIS_PERIOD_208W` AND `DATE` <= `END_OF_ANALYSIS_PERIOD` THEN `AMOUNT_PAID_EXCL_TAX`
+    END AS `MONETARY_208W`
+    FROM s8
+  ),
+  s10 AS (
+    SELECT *,
+      CASE
+    WHEN `DATE` >= `START_OF_ANALYSIS_PERIOD_260W` AND `DATE` <= `END_OF_ANALYSIS_PERIOD` THEN `AMOUNT_PAID_EXCL_TAX`
+    END AS `MONETARY_260W`
+    FROM s9
+  )
+  SELECT * FROM s10
+),
+
+-- [CLEAN] Dupe Days Since last Purchase
+dupe_days_since_last_purchase AS (
+  WITH
+  s0 AS (
+    SELECT *,
+      `DAYS_SINCE_PREVIOUS_ORDER` AS `DAYS_SINCE_PREVIOUS_ORDER_1`
+    FROM filters
+  ),
+  s1 AS (
+    SELECT * EXCEPT (`CUSTOMER_ID`), `CUSTOMER_ID` AS `CUSTOMER_ID_REM`
+    FROM s0
+  )
+  SELECT * FROM s1
+),
+
+-- [CLEAN] Channel Split
+channel_split AS (
+  WITH
+  s0 AS (
+    SELECT `CUSTOMER_ID`, `CHANNEL_GROUP`, `AMOUNT_PAID_EXCL_TAX`
+    FROM filters
+  )
+  SELECT * FROM s0
+),
+
+-- [CLEAN] Department Split
+department_split AS (
+  WITH
+  s0 AS (
+    SELECT `CUSTOMER_ID`, `DEPARTMENT`, `AMOUNT_PAID_EXCL_TAX`
+    FROM filters
+  )
+  SELECT * FROM s0
+),
+
+-- [CLEAN] Category Split
+category_split AS (
+  WITH
+  s0 AS (
+    SELECT `CUSTOMER_ID`, `PRODUCT_CATEGORY`, `AMOUNT_PAID_EXCL_TAX`
+    FROM filters
+  ),
+  s1 AS (
+    SELECT * EXCEPT (`PRODUCT_CATEGORY`),
+      LOWER(`PRODUCT_CATEGORY`) AS `PRODUCT_CATEGORY`
+    FROM s0
+  )
+  SELECT * FROM s1
+),
+
+-- [CLEAN] Promocode
+promocode AS (
+  WITH
+  s0 AS (
+    SELECT *,
+      COALESCE(`SHOPIFY_DISCOUNT_CODE`, `CUSTBODY_NS_BS_DISCOUNT_CODE`) AS `PROMOCODE`
+    FROM filters
+  )
+  SELECT * FROM s0
+),
+
+-- [CLEAN] Recent Signals
+recent_signals AS (
+  WITH
+  s0 AS (
+    SELECT *,
+      CASE
+    WHEN `DATE` >= `START_OF_ANALYSIS_PERIOD_13W` AND `DATE` <= `END_OF_ANALYSIS_PERIOD` THEN `ORDER_ID`
+    END AS `ORDERS_13W`
+    FROM rfm
+  ),
+  s1 AS (
+    SELECT *,
+      CASE
+    WHEN `DATE` >= `START_OF_ANALYSIS_PERIOD_13W` AND `DATE` <= `END_OF_ANALYSIS_PERIOD` THEN `AMOUNT_PAID_EXCL_TAX`
+    END AS `DEMAND_13W`
+    FROM s0
+  )
+  SELECT * FROM s1
+),
+
+-- [CLEAN] Markdown Status
+markdown_status AS (
+  WITH
+  s0 AS (
+    SELECT *,
+      CASE
+    WHEN COALESCE(`CUSTCOL_BB1_MARKED_DOWN`, CAST(`CURRENT_RETAIL_PRICE` AS STRING)) IS NULL = FALSE AND ((`TYPE` = "CreditMemo" AND (`AMOUNT_REFUNDED_INC_TAX` / `QUANTITY_RETURNED`) < `RRP`) OR (`TYPE` <> "CreditMemo" AND (`AMOUNT_PAID_INC_TAX` / `QUANTITY_SOLD`) < `RRP`)) THEN "Markdown"
+    ELSE "Full Price"
+    END AS `MARK_DOWN_STATUS`
+    FROM rfm
+  ),
+  s1 AS (
+    SELECT `MARK_DOWN_STATUS`, `CUSTOMER_ID`, `AMOUNT_PAID_EXCL_TAX`
+    FROM s0
+  )
+  SELECT * FROM s1
+),
+
+-- [AGGREGATE] Cust + Order
+cust_order AS (
+  SELECT
+    `CUSTOMER_ID_REM`,
+    `ORDER_ID`,
+    MAX(`DAYS_SINCE_PREVIOUS_ORDER`) AS `DAYS_SINCE_PREVIOUS_ORDER`,
+    MAX(`DAYS_SINCE_PREVIOUS_ORDER_1`) AS `DAYS_SINCE_PREVIOUS_ORDER_1`
+  FROM dupe_days_since_last_purchase
+  GROUP BY `CUSTOMER_ID_REM`, `ORDER_ID`
+),
+
+-- [AGGREGATE] Agg Chan Group
+agg_chan_group AS (
+  SELECT
+    `CHANNEL_GROUP`,
+    `CUSTOMER_ID`,
+    SUM(`AMOUNT_PAID_EXCL_TAX`) AS `AMOUNT_PAID_EXCL_TAX`
+  FROM channel_split
+  GROUP BY `CHANNEL_GROUP`, `CUSTOMER_ID`
+),
+
+-- [AGGREGATE] Add Dept Group
+add_dept_group AS (
+  SELECT
+    `CUSTOMER_ID`,
+    `DEPARTMENT`,
+    SUM(`AMOUNT_PAID_EXCL_TAX`) AS `AMOUNT_PAID_EXCL_TAX`
+  FROM department_split
+  GROUP BY `CUSTOMER_ID`, `DEPARTMENT`
+),
+
+-- [AGGREGATE] Add Cat Group
+add_cat_group AS (
+  SELECT
+    `CUSTOMER_ID`,
+    `PRODUCT_CATEGORY`,
+    SUM(`AMOUNT_PAID_EXCL_TAX`) AS `AMOUNT_PAID_EXCL_TAX`
+  FROM category_split
+  GROUP BY `CUSTOMER_ID`, `PRODUCT_CATEGORY`
+),
+
+-- [AGGREGATE] Promocode count
+promocode_count AS (
+  SELECT
+    `CUSTOMER_ID`,
+    `ORDER_ID`,
+    COUNT(DISTINCT `PROMOCODE`) AS `PROMOCODE`
+  FROM promocode
+  GROUP BY `CUSTOMER_ID`, `ORDER_ID`
+),
+
+-- [CLEAN] Returns
+returns AS (
+  WITH
+  s0 AS (
+    SELECT *,
+      CASE
+    WHEN `DATE` >= `START_OF_ANALYSIS_PERIOD_52W` AND `DATE` <= `END_OF_ANALYSIS_PERIOD` THEN `AMOUNT_REFUNDED_EXCL_TAX`
+    END AS `RETURNS_52W`
+    FROM recent_signals
+  ),
+  s1 AS (
+    SELECT *,
+      CASE
+    WHEN `DATE` >= `START_OF_ANALYSIS_PERIOD_104W` AND `DATE` <= `END_OF_ANALYSIS_PERIOD` THEN `AMOUNT_REFUNDED_EXCL_TAX`
+    END AS `RETURNS_104W`
+    FROM s0
+  ),
+  s2 AS (
+    SELECT *,
+      CASE
+    WHEN `DATE` >= `START_OF_ANALYSIS_PERIOD_156W` AND `DATE` <= `END_OF_ANALYSIS_PERIOD` THEN `AMOUNT_REFUNDED_EXCL_TAX`
+    END AS `RETURNS_156W`
+    FROM s1
+  ),
+  s3 AS (
+    SELECT *,
+      CASE
+    WHEN `DATE` >= `START_OF_ANALYSIS_PERIOD_208W` AND `DATE` <= `END_OF_ANALYSIS_PERIOD` THEN `AMOUNT_REFUNDED_EXCL_TAX`
+    END AS `RETURNS_208W`
+    FROM s2
+  ),
+  s4 AS (
+    SELECT *,
+      CASE
+    WHEN `DATE` >= `START_OF_ANALYSIS_PERIOD_260W` AND `DATE` <= `END_OF_ANALYSIS_PERIOD` THEN `AMOUNT_REFUNDED_EXCL_TAX`
+    END AS `RETURNS_260W`
+    FROM s3
+  ),
+  s5 AS (
+    SELECT *,
+      CASE
+    WHEN `DATE` >= `START_OF_ANALYSIS_PERIOD_13W` AND `DATE` <= `END_OF_ANALYSIS_PERIOD` THEN `AMOUNT_REFUNDED_EXCL_TAX`
+    END AS `RETURNS_13W`
+    FROM s4
+  )
+  SELECT * FROM s5
+),
+
+-- [AGGREGATE] Aggregate MD and FP
+aggregate_md_and_fp AS (
+  SELECT
+    `CUSTOMER_ID`,
+    `MARK_DOWN_STATUS`,
+    SUM(`AMOUNT_PAID_EXCL_TAX`) AS `AMOUNT_PAID_EXCL_TAX`
+  FROM markdown_status
+  GROUP BY `CUSTOMER_ID`, `MARK_DOWN_STATUS`
+),
+
+-- [CLEAN] Remove order_id
+remove_order_id AS (
+  WITH
+  s0 AS (
+    SELECT * EXCEPT (`ORDER_ID`)
+    FROM cust_order
+  )
+  SELECT * FROM s0
+),
+
+-- [PIVOT] Channel Demad
+channel_demad AS (
+  SELECT *
+  FROM agg_chan_group
+  PIVOT(
+    SUM(`AMOUNT_PAID_EXCL_TAX`)
+    FOR `CHANNEL_GROUP` IN ('Online', 'Retail')
+  )
+),
+
+-- [PIVOT] Department Demand
+department_demand AS (
+  SELECT *
+  FROM add_dept_group
+  PIVOT(
+    SUM(`AMOUNT_PAID_EXCL_TAX`)
+    FOR `DEPARTMENT` IN ('Accessories', 'Mens', 'Other', 'Womens')
+  )
+),
+
+-- [PIVOT] Category Demand
+category_demand AS (
+  SELECT *
+  FROM add_cat_group
+  PIVOT(
+    SUM(`AMOUNT_PAID_EXCL_TAX`)
+    FOR `PRODUCT_CATEGORY` IN ('bags', 'base layers', 'beach', 'delivery', 'dresses and jumpsuits', 'fabric', 'fleece', 'footwear', 'gear', 'hats', 'insulation', 'jackets', 'knitwear', 'legwear', 'literature', 'lived and loved', 'other', 'other 3rd party', 'repairs', 'shirts', 'socks', 'stickers', 'sweats', 'tees', 'tops', 'underwear', 'wetsuit')
+  )
+),
+
+-- [CLEAN] Clean 1
+clean_1 AS (
+  WITH
+  s0 AS (
+    SELECT *,
+      CASE
+    WHEN `AMOUNT_PAID_EXCL_TAX` > 0 THEN 1
+    ELSE 0
+    END AS `CATEGORY_FLAG`
+    FROM add_cat_group
+  )
+  SELECT * FROM s0
+),
+
+-- [CLEAN] Remove order id
+remove_order_id_2 AS (
+  WITH
+  s0 AS (
+    SELECT * EXCEPT (`ORDER_ID`)
+    FROM promocode_count
+  ),
+  s1 AS (
+    SELECT * EXCEPT (`CUSTOMER_ID`), `CUSTOMER_ID` AS `CUSTOMER_ID_REM`
+    FROM s0
+  )
+  SELECT * FROM s1
+),
+
+-- [CLEAN] Discount
+discount AS (
+  WITH
+  s0 AS (
+    SELECT *,
+      CASE
+    WHEN `CHANNEL_GROUP` = "Wholesale" AND `TYPE` = "Invoice" THEN `AMOUNT_PAID_EXCL_TAX` / `QUANTITY_SOLD`
+    WHEN `CHANNEL_GROUP` = "Wholesale" AND `TYPE` = "CreditMemo" THEN `AMOUNT_REFUNDED_EXCL_TAX` / `QUANTITY_RETURNED`
+    WHEN `REGION` <> "UK" THEN `RRP`
+    ELSE (`RRP` / 120) * 100
+    END AS `RRP_EXCL_TAX`
+    FROM returns
+  ),
+  s1 AS (
+    SELECT *,
+      CASE
+    WHEN ((`RRP_EXCL_TAX` * `QUANTITY_SOLD`) - `AMOUNT_PAID_EXCL_TAX`) / `AMOUNT_PAID_EXCL_TAX` + ((`RRP_EXCL_TAX` * `QUANTITY_SOLD`) - `AMOUNT_PAID_EXCL_TAX`) < 0.075 THEN 0
+    ELSE ((`RRP_EXCL_TAX` * `QUANTITY_SOLD`) - `AMOUNT_PAID_EXCL_TAX`)
+    END AS `DISCOUNT_AMOUNT`
+    FROM s0
+  ),
+  s2 AS (
+    SELECT *,
+      CASE
+    WHEN `DATE` >= `START_OF_ANALYSIS_PERIOD_52W` AND `DATE` <= `END_OF_ANALYSIS_PERIOD` THEN `DISCOUNT_AMOUNT`
+    END AS `DISCOUNT_52W`
+    FROM s1
+  ),
+  s3 AS (
+    SELECT *,
+      CASE
+    WHEN `DATE` >= `START_OF_ANALYSIS_PERIOD_104W` AND `DATE` <= `END_OF_ANALYSIS_PERIOD` THEN `DISCOUNT_AMOUNT`
+    END AS `DISCOUNT_104W`
+    FROM s2
+  ),
+  s4 AS (
+    SELECT *,
+      CASE
+    WHEN `DATE` >= `START_OF_ANALYSIS_PERIOD_156W` AND `DATE` <= `END_OF_ANALYSIS_PERIOD` THEN `DISCOUNT_AMOUNT`
+    END AS `DISCOUNT_156W`
+    FROM s3
+  ),
+  s5 AS (
+    SELECT *,
+      CASE
+    WHEN `DATE` >= `START_OF_ANALYSIS_PERIOD_208W` AND `DATE` <= `END_OF_ANALYSIS_PERIOD` THEN `DISCOUNT_AMOUNT`
+    END AS `DISCOUNT_208W`
+    FROM s4
+  ),
+  s6 AS (
+    SELECT *,
+      CASE
+    WHEN `DATE` >= `START_OF_ANALYSIS_PERIOD_260W` AND `DATE` <= `END_OF_ANALYSIS_PERIOD` THEN `DISCOUNT_AMOUNT`
+    END AS `DISCOUNT_260W`
+    FROM s5
+  )
+  SELECT * FROM s6
+),
+
+-- [PIVOT] FP & MD Demand
+fp_md_demand AS (
+  SELECT *
+  FROM aggregate_md_and_fp
+  PIVOT(
+    SUM(`AMOUNT_PAID_EXCL_TAX`)
+    FOR `MARK_DOWN_STATUS` IN ('Full Price', 'Markdown')
+  )
+),
+
+-- [AGGREGATE] Avg and Std
+avg_and_std AS (
+  SELECT
+    `CUSTOMER_ID_REM`,
+    AVG(`DAYS_SINCE_PREVIOUS_ORDER`) AS `DAYS_SINCE_PREVIOUS_ORDER`,
+    STDDEV(`DAYS_SINCE_PREVIOUS_ORDER_1`) AS `DAYS_SINCE_PREVIOUS_ORDER_1`
+  FROM remove_order_id
+  GROUP BY `CUSTOMER_ID_REM`
+),
+
+-- [CLEAN] Cat Demand
+cat_demand AS (
+  WITH
+  s0 AS (
+    SELECT * EXCEPT (`BASE_LAYERS`), `BASE_LAYERS` AS `BASE_LAYERS`
+    FROM category_demand
+  ),
+  s1 AS (
+    SELECT * EXCEPT (`DRESSES_AND_JUMPSUITS`), `DRESSES_AND_JUMPSUITS` AS `DRESSES_AND_JUMPSUITS`
+    FROM s0
+  ),
+  s2 AS (
+    SELECT * EXCEPT (`LIVED_AND_LOVED`), `LIVED_AND_LOVED` AS `LIVED_AND_LOVED`
+    FROM s1
+  ),
+  s3 AS (
+    SELECT * EXCEPT (`OTHER_3RD_PARTY`), `OTHER_3RD_PARTY` AS `OTHER_3RD_PARTY`
+    FROM s2
+  ),
+  s4 AS (
+    SELECT * EXCEPT (`BAGS`), `BAGS` AS `CAT_BAGS`
+    FROM s3
+  ),
+  s5 AS (
+    SELECT * EXCEPT (`BASE_LAYERS`), `BASE_LAYERS` AS `CAT_BASE_LAYERS`
+    FROM s4
+  ),
+  s6 AS (
+    SELECT * EXCEPT (`BEACH`), `BEACH` AS `CAT_BEACH`
+    FROM s5
+  ),
+  s7 AS (
+    SELECT * EXCEPT (`DELIVERY`), `DELIVERY` AS `CAT_DELIVERY`
+    FROM s6
+  ),
+  s8 AS (
+    SELECT * EXCEPT (`DRESSES_AND_JUMPSUITS`), `DRESSES_AND_JUMPSUITS` AS `CAT_DRESSES_AND_JUMPSUITS`
+    FROM s7
+  ),
+  s9 AS (
+    SELECT * EXCEPT (`FABRIC`), `FABRIC` AS `CAT_FABRIC`
+    FROM s8
+  ),
+  s10 AS (
+    SELECT * EXCEPT (`FLEECE`), `FLEECE` AS `CAT_FLEECE`
+    FROM s9
+  ),
+  s11 AS (
+    SELECT * EXCEPT (`FOOTWEAR`), `FOOTWEAR` AS `CAT_FOOTWEAR`
+    FROM s10
+  ),
+  s12 AS (
+    SELECT * EXCEPT (`GEAR`), `GEAR` AS `CAT_GEAR`
+    FROM s11
+  ),
+  s13 AS (
+    SELECT * EXCEPT (`HATS`), `HATS` AS `CAT_HATS`
+    FROM s12
+  ),
+  s14 AS (
+    SELECT * EXCEPT (`INSULATION`), `INSULATION` AS `CAT_INSULATION`
+    FROM s13
+  ),
+  s15 AS (
+    SELECT * EXCEPT (`JACKETS`), `JACKETS` AS `CAT_JACKETS`
+    FROM s14
+  ),
+  s16 AS (
+    SELECT * EXCEPT (`KNITWEAR`), `KNITWEAR` AS `CAT_KNITWEAR`
+    FROM s15
+  ),
+  s17 AS (
+    SELECT * EXCEPT (`LEGWEAR`), `LEGWEAR` AS `CAT_LEGWEAR`
+    FROM s16
+  ),
+  s18 AS (
+    SELECT * EXCEPT (`LITERATURE`), `LITERATURE` AS `CAT_LITERATURE`
+    FROM s17
+  ),
+  s19 AS (
+    SELECT * EXCEPT (`LIVED_AND_LOVED`), `LIVED_AND_LOVED` AS `CAT_LIVED_AND_LOVED`
+    FROM s18
+  ),
+  s20 AS (
+    SELECT * EXCEPT (`OTHER`), `OTHER` AS `CAT_OTHER`
+    FROM s19
+  ),
+  s21 AS (
+    SELECT * EXCEPT (`OTHER_3RD_PARTY`), `OTHER_3RD_PARTY` AS `CAT_OTHER_3RD_PARTY`
+    FROM s20
+  ),
+  s22 AS (
+    SELECT * EXCEPT (`REPAIRS`), `REPAIRS` AS `CAT_REPAIRS`
+    FROM s21
+  ),
+  s23 AS (
+    SELECT * EXCEPT (`SHIRTS`), `SHIRTS` AS `CAT_SHIRTS`
+    FROM s22
+  ),
+  s24 AS (
+    SELECT * EXCEPT (`SOCKS`), `SOCKS` AS `CAT_SOCKS`
+    FROM s23
+  ),
+  s25 AS (
+    SELECT * EXCEPT (`STICKERS`), `STICKERS` AS `CAT_STICKERS`
+    FROM s24
+  ),
+  s26 AS (
+    SELECT * EXCEPT (`SWEATS`), `SWEATS` AS `CAT_SWEATS`
+    FROM s25
+  ),
+  s27 AS (
+    SELECT * EXCEPT (`TEES`), `TEES` AS `CAT_TEES`
+    FROM s26
+  ),
+  s28 AS (
+    SELECT * EXCEPT (`TOPS`), `TOPS` AS `CAT_TOPS`
+    FROM s27
+  ),
+  s29 AS (
+    SELECT * EXCEPT (`UNDERWEAR`), `UNDERWEAR` AS `CAT_UNDERWEAR`
+    FROM s28
+  ),
+  s30 AS (
+    SELECT * EXCEPT (`WETSUIT`), `WETSUIT` AS `CAT_WETSUIT`
+    FROM s29
+  ),
+  s31 AS (
+    SELECT * EXCEPT (`CAT_BAGS`), `CAT_BAGS` AS `CAT_BAGS_DEMAND`
+    FROM s30
+  ),
+  s32 AS (
+    SELECT * EXCEPT (`CAT_BASE_LAYERS`), `CAT_BASE_LAYERS` AS `CAT_BASE_LAYERS_DEMAND`
+    FROM s31
+  ),
+  s33 AS (
+    SELECT * EXCEPT (`CAT_BEACH`), `CAT_BEACH` AS `CAT_BEACH_DEMAND`
+    FROM s32
+  ),
+  s34 AS (
+    SELECT * EXCEPT (`CAT_DELIVERY`), `CAT_DELIVERY` AS `CAT_DELIVERY_DEMAND`
+    FROM s33
+  ),
+  s35 AS (
+    SELECT * EXCEPT (`CAT_DRESSES_AND_JUMPSUITS`), `CAT_DRESSES_AND_JUMPSUITS` AS `CAT_DRESSES_AND_JUMPSUITS_DEMAND`
+    FROM s34
+  ),
+  s36 AS (
+    SELECT * EXCEPT (`CAT_FABRIC`), `CAT_FABRIC` AS `CAT_FABRIC_DEMAND`
+    FROM s35
+  ),
+  s37 AS (
+    SELECT * EXCEPT (`CAT_FLEECE`), `CAT_FLEECE` AS `CAT_FLEECE_DEMAND`
+    FROM s36
+  ),
+  s38 AS (
+    SELECT * EXCEPT (`CAT_FOOTWEAR`), `CAT_FOOTWEAR` AS `CAT_FOOTWEAR_DEMAND`
+    FROM s37
+  ),
+  s39 AS (
+    SELECT * EXCEPT (`CAT_GEAR`), `CAT_GEAR` AS `CAT_GEAR_DEMAND`
+    FROM s38
+  ),
+  s40 AS (
+    SELECT * EXCEPT (`CAT_HATS`), `CAT_HATS` AS `CAT_HATS_DEMAND`
+    FROM s39
+  ),
+  s41 AS (
+    SELECT * EXCEPT (`CAT_INSULATION`), `CAT_INSULATION` AS `CAT_INSULATION_DEMAND`
+    FROM s40
+  ),
+  s42 AS (
+    SELECT * EXCEPT (`CAT_JACKETS`), `CAT_JACKETS` AS `CAT_JACKETS_DEMAND`
+    FROM s41
+  ),
+  s43 AS (
+    SELECT * EXCEPT (`CAT_KNITWEAR`), `CAT_KNITWEAR` AS `CAT_KNITWEAR_DEMAND`
+    FROM s42
+  ),
+  s44 AS (
+    SELECT * EXCEPT (`CAT_LEGWEAR`), `CAT_LEGWEAR` AS `CAT_LEGWEAR_DEMAND`
+    FROM s43
+  ),
+  s45 AS (
+    SELECT * EXCEPT (`CAT_LITERATURE`), `CAT_LITERATURE` AS `CAT_LITERATURE_DEMAND`
+    FROM s44
+  ),
+  s46 AS (
+    SELECT * EXCEPT (`CAT_LIVED_AND_LOVED`), `CAT_LIVED_AND_LOVED` AS `CAT_LIVED_AND_LOVED_DEMAND`
+    FROM s45
+  ),
+  s47 AS (
+    SELECT * EXCEPT (`CAT_OTHER`), `CAT_OTHER` AS `CAT_OTHER_DEMAND`
+    FROM s46
+  ),
+  s48 AS (
+    SELECT * EXCEPT (`CAT_OTHER_3RD_PARTY`), `CAT_OTHER_3RD_PARTY` AS `CAT_OTHER_3RD_PARTY_DEMAND`
+    FROM s47
+  ),
+  s49 AS (
+    SELECT * EXCEPT (`CAT_REPAIRS`), `CAT_REPAIRS` AS `CAT_REPAIRS_DEMAND`
+    FROM s48
+  ),
+  s50 AS (
+    SELECT * EXCEPT (`CAT_SHIRTS`), `CAT_SHIRTS` AS `CAT_SHIRTS_DEMAND`
+    FROM s49
+  ),
+  s51 AS (
+    SELECT * EXCEPT (`CAT_SOCKS`), `CAT_SOCKS` AS `CAT_SOCKS_DEMAND`
+    FROM s50
+  ),
+  s52 AS (
+    SELECT * EXCEPT (`CAT_STICKERS`), `CAT_STICKERS` AS `CAT_STICKERS_DEMAND`
+    FROM s51
+  ),
+  s53 AS (
+    SELECT * EXCEPT (`CAT_SWEATS`), `CAT_SWEATS` AS `CAT_SWEATS_DEMAND`
+    FROM s52
+  ),
+  s54 AS (
+    SELECT * EXCEPT (`CAT_TEES`), `CAT_TEES` AS `CAT_TEES_DEMAND`
+    FROM s53
+  ),
+  s55 AS (
+    SELECT * EXCEPT (`CAT_TOPS`), `CAT_TOPS` AS `CAT_TOPS_DEMAND`
+    FROM s54
+  ),
+  s56 AS (
+    SELECT * EXCEPT (`CAT_UNDERWEAR`), `CAT_UNDERWEAR` AS `CAT_UNDERWEAR_DEMAND`
+    FROM s55
+  ),
+  s57 AS (
+    SELECT * EXCEPT (`CAT_WETSUIT`), `CAT_WETSUIT` AS `CAT_WETSUIT_DEMAND`
+    FROM s56
+  ),
+  s58 AS (
+    SELECT * EXCEPT (`CUSTOMER_ID`), `CUSTOMER_ID` AS `CUSTOMER_ID_REM`
+    FROM s57
+  )
+  SELECT * FROM s58
+),
+
+-- [AGGREGATE] Count of Categories
+count_of_categories AS (
+  SELECT
+    `CUSTOMER_ID`,
+    SUM(`CATEGORY_FLAG`) AS `CATEGORY_FLAG`
+  FROM clean_1
+  GROUP BY `CUSTOMER_ID`
+),
+
+-- [AGGREGATE] Promocodes
+promocodes AS (
+  SELECT
+    `CUSTOMER_ID_REM`,
+    SUM(`PROMOCODE`) AS `PROMOCODE`
+  FROM remove_order_id_2
+  GROUP BY `CUSTOMER_ID_REM`
+),
+
+-- [CLEAN] Seasonality
+seasonality AS (
+  WITH
+  s0 AS (
+    SELECT *,
+      CAST(REGEXP_EXTRACT(`FULL_MERCH_FY_MONTH`, 'P(\d+)') AS INT64) AS `FY_PERIOD_NUM`
+    FROM discount
+  ),
+  s1 AS (
+    SELECT *,
+      CASE
+    WHEN `FY_PERIOD_NUM` = 1 OR `FY_PERIOD_NUM` = 2 OR `FY_PERIOD_NUM` = 3 THEN `AMOUNT_PAID_EXCL_TAX`
+    ELSE 0
+    END AS `FY_Q1_DEMAND`
+    FROM s0
+  ),
+  s2 AS (
+    SELECT *,
+      CASE
+    WHEN `FY_PERIOD_NUM` = 4 OR `FY_PERIOD_NUM` = 5 OR `FY_PERIOD_NUM` = 6 THEN `AMOUNT_PAID_EXCL_TAX`
+    ELSE 0
+    END AS `FY_Q2_DEMAND`
+    FROM s1
+  ),
+  s3 AS (
+    SELECT *,
+      CASE
+    WHEN `FY_PERIOD_NUM` = 7 OR `FY_PERIOD_NUM` = 8 OR `FY_PERIOD_NUM` = 9 THEN `AMOUNT_PAID_EXCL_TAX`
+    ELSE 0
+    END AS `FY_Q3_DEMAND`
+    FROM s2
+  ),
+  s4 AS (
+    SELECT *,
+      CASE
+    WHEN `FY_PERIOD_NUM` = 10 OR `FY_PERIOD_NUM` = 11 OR `FY_PERIOD_NUM` = 12 THEN `AMOUNT_PAID_EXCL_TAX`
+    ELSE 0
+    END AS `FY_Q4_DEMAND`
+    FROM s3
+  ),
+  s5 AS (
+    SELECT *,
+      CASE
+    WHEN `FY_PERIOD_NUM` = 1 OR `FY_PERIOD_NUM` = 2 OR `FY_PERIOD_NUM` = 3 THEN `DISCOUNT_AMOUNT`
+    ELSE 0
+    END AS `FY_Q1_DISCOUNT`
+    FROM s4
+  ),
+  s6 AS (
+    SELECT *,
+      CASE
+    WHEN `FY_PERIOD_NUM` = 4 OR `FY_PERIOD_NUM` = 5 OR `FY_PERIOD_NUM` = 6 THEN `DISCOUNT_AMOUNT`
+    ELSE 0
+    END AS `FY_Q2_DISCOUNT`
+    FROM s5
+  ),
+  s7 AS (
+    SELECT *,
+      CASE
+    WHEN `FY_PERIOD_NUM` = 7 OR `FY_PERIOD_NUM` = 8 OR `FY_PERIOD_NUM` = 9 THEN `DISCOUNT_AMOUNT`
+    ELSE 0
+    END AS `FY_Q3_DISCOUNT`
+    FROM s6
+  ),
+  s8 AS (
+    SELECT *,
+      CASE
+    WHEN `FY_PERIOD_NUM` = 10 OR `FY_PERIOD_NUM` = 11 OR `FY_PERIOD_NUM` = 12 THEN `DISCOUNT_AMOUNT`
+    ELSE 0
+    END AS `FY_Q4_DISCOUNT`
+    FROM s7
+  )
+  SELECT * FROM s8
+),
+
+-- [CLEAN] Cat Count
+cat_count AS (
+  WITH
+  s0 AS (
+    SELECT * EXCEPT (`CUSTOMER_ID`), `CUSTOMER_ID` AS `CUSTOMER_ID_REM`
+    FROM count_of_categories
+  )
+  SELECT * FROM s0
+),
+
+-- [AGGREGATE] Aggregating
+aggregating AS (
+  SELECT
+    `CUSTOMER_ID`,
+    `FIXED_EMAIL`,
+    MIN(`RECENCY`) AS `RECENCY`,
+    COUNT(DISTINCT `FREQUENCY_104W`) AS `FREQUENCY_104W`,
+    COUNT(DISTINCT `FREQUENCY_156W`) AS `FREQUENCY_156W`,
+    SUM(`MONETARY_52W`) AS `MONETARY_52W`,
+    COUNT(DISTINCT `FREQUENCY_260W`) AS `FREQUENCY_260W`,
+    COUNT(DISTINCT `FREQUENCY_208W`) AS `FREQUENCY_208W`,
+    SUM(`MONETARY_104W`) AS `MONETARY_104W`,
+    SUM(`MONETARY_156W`) AS `MONETARY_156W`,
+    SUM(`MONETARY_208W`) AS `MONETARY_208W`,
+    SUM(`DEMAND_13W`) AS `DEMAND_13W`,
+    COUNT(DISTINCT `ORDER_ID`) AS `ORDER_ID`,
+    COUNT(DISTINCT `ORDERS_13W`) AS `ORDERS_13W`,
+    COUNT(DISTINCT `FREQUENCY_52W`) AS `FREQUENCY_52W`,
+    SUM(`MONETARY_260W`) AS `MONETARY_260W`,
+    SUM(`RETURNS_104W`) AS `RETURNS_104W`,
+    SUM(`RETURNS_13W`) AS `RETURNS_13W`,
+    SUM(`RETURNS_156W`) AS `RETURNS_156W`,
+    SUM(`RETURNS_208W`) AS `RETURNS_208W`,
+    SUM(`RETURNS_260W`) AS `RETURNS_260W`,
+    SUM(`RETURNS_52W`) AS `RETURNS_52W`,
+    SUM(`AMOUNT_REFUNDED_EXCL_TAX`) AS `AMOUNT_REFUNDED_EXCL_TAX`,
+    SUM(`DISCOUNT_AMOUNT`) AS `DISCOUNT_AMOUNT`,
+    SUM(`DISCOUNT_52W`) AS `DISCOUNT_52W`,
+    SUM(`DISCOUNT_260W`) AS `DISCOUNT_260W`,
+    SUM(`DISCOUNT_208W`) AS `DISCOUNT_208W`,
+    SUM(`DISCOUNT_156W`) AS `DISCOUNT_156W`,
+    SUM(`DISCOUNT_104W`) AS `DISCOUNT_104W`,
+    SUM(`AMOUNT_PAID_EXCL_TAX`) AS `AMOUNT_PAID_EXCL_TAX`,
+    SUM(`FY_Q3_DISCOUNT`) AS `FY_Q3_DISCOUNT`,
+    SUM(`FY_Q2_DEMAND`) AS `FY_Q2_DEMAND`,
+    SUM(`FY_Q3_DEMAND`) AS `FY_Q3_DEMAND`,
+    SUM(`FY_Q4_DEMAND`) AS `FY_Q4_DEMAND`,
+    SUM(`FY_Q1_DEMAND`) AS `FY_Q1_DEMAND`,
+    SUM(`FY_Q1_DISCOUNT`) AS `FY_Q1_DISCOUNT`,
+    SUM(`FY_Q2_DISCOUNT`) AS `FY_Q2_DISCOUNT`,
+    SUM(`FY_Q4_DISCOUNT`) AS `FY_Q4_DISCOUNT`
+  FROM seasonality
+  GROUP BY `CUSTOMER_ID`, `FIXED_EMAIL`
+),
+
+-- [JOIN] Purchase Pattern
+purchase_pattern AS (
+  WITH
+  jl0 AS (
+    SELECT * EXCEPT (`DAYS_SINCE_PREVIOUS_ORDER`), `DAYS_SINCE_PREVIOUS_ORDER` AS `AVG_DAYS_BETWEEN_ORDERS`
+    FROM avg_and_std
+  ),
+  jl1 AS (
+    SELECT * EXCEPT (`DAYS_SINCE_PREVIOUS_ORDER_1`), `DAYS_SINCE_PREVIOUS_ORDER_1` AS `STD_DAYS_BETWEEN_ORDERS`
+    FROM jl0
+  ),
+  core AS (
+    SELECT
+      l.*,
+      r.* EXCEPT (`CUSTOMER_ID`)
+    FROM jl1 AS l
+    RIGHT JOIN aggregating AS r
+      ON l.`CUSTOMER_ID_REM` = r.`CUSTOMER_ID`
+  ),
+  jpost0 AS (
+    SELECT * EXCEPT (`CUSTOMER_ID_REM`)
+    FROM core
+  )
+  SELECT * FROM jpost0
+),
+
+-- [JOIN] Add FP & MD
+add_fp_md AS (
+  WITH
+  core AS (
+    SELECT
+      l.*,
+      r.* EXCEPT (`CUSTOMER_ID`)
+    FROM fp_md_demand AS l
+    RIGHT JOIN purchase_pattern AS r
+      ON l.`CUSTOMER_ID_REM` = r.`CUSTOMER_ID`
+  ),
+  jpost0 AS (
+    SELECT * EXCEPT (`CUSTOMER_ID_REM`)
+    FROM core
+  )
+  SELECT * FROM jpost0
+),
+
+-- [JOIN] Add Chan Demand
+add_chan_demand AS (
+  WITH
+  core AS (
+    SELECT
+      l.*,
+      r.* EXCEPT (`CUSTOMER_ID`)
+    FROM channel_demad AS l
+    RIGHT JOIN add_fp_md AS r
+      ON l.`CUSTOMER_ID_REM` = r.`CUSTOMER_ID`
+  ),
+  jpost0 AS (
+    SELECT * EXCEPT (`CUSTOMER_ID_REM`)
+    FROM core
+  )
+  SELECT * FROM jpost0
+),
+
+-- [JOIN] Add Dept. Demand
+add_dept_demand AS (
+  WITH
+  core AS (
+    SELECT
+      l.*,
+      r.* EXCEPT (`CUSTOMER_ID`)
+    FROM department_demand AS l
+    RIGHT JOIN add_chan_demand AS r
+      ON l.`CUSTOMER_ID_REM` = r.`CUSTOMER_ID`
+  ),
+  jpost0 AS (
+    SELECT * EXCEPT (`CUSTOMER_ID_REM`)
+    FROM core
+  )
+  SELECT * FROM jpost0
+),
+
+-- [JOIN] Add Cat Demand
+add_cat_demand AS (
+  WITH
+  core AS (
+    SELECT
+      l.*,
+      r.* EXCEPT (`CUSTOMER_ID`)
+    FROM cat_demand AS l
+    RIGHT JOIN add_dept_demand AS r
+      ON l.`CUSTOMER_ID_REM` = r.`CUSTOMER_ID`
+  ),
+  jpost0 AS (
+    SELECT * EXCEPT (`CUSTOMER_ID_REM`)
+    FROM core
+  )
+  SELECT * FROM jpost0
+),
+
+-- [JOIN] Join 6
+join_6 AS (
+  WITH
+  jl0 AS (
+    SELECT * EXCEPT (`CATEGORY_FLAG`), `CATEGORY_FLAG` AS `DISTINCT_CATEGORIES_PURCHASED`
+    FROM cat_count
+  ),
+  core AS (
+    SELECT
+      l.*,
+      r.* EXCEPT (`CUSTOMER_ID`)
+    FROM jl0 AS l
+    RIGHT JOIN add_cat_demand AS r
+      ON l.`CUSTOMER_ID_REM` = r.`CUSTOMER_ID`
+  ),
+  jpost0 AS (
+    SELECT * EXCEPT (`CUSTOMER_ID_REM`)
+    FROM core
+  )
+  SELECT * FROM jpost0
+),
+
+-- [JOIN] Join 8
+join_8 AS (
+  WITH
+  jl0 AS (
+    SELECT * EXCEPT (`PROMOCODE`), `PROMOCODE` AS `TOTAL_PROMOCODES_USED`
+    FROM promocodes
+  ),
+  core AS (
+    SELECT
+      l.*,
+      r.* EXCEPT (`CUSTOMER_ID`)
+    FROM jl0 AS l
+    RIGHT JOIN join_6 AS r
+      ON l.`CUSTOMER_ID_REM` = r.`CUSTOMER_ID`
+  ),
+  jpost0 AS (
+    SELECT * EXCEPT (`CUSTOMER_ID_REM`)
+    FROM core
+  )
+  SELECT * FROM jpost0
+),
+
+-- [CLEAN] AOV
+aov AS (
+  WITH
+  s0 AS (
+    SELECT *,
+      `MONETARY_52W` / `FREQUENCY_52W` AS `AOV_52W`
+    FROM join_8
+  ),
+  s1 AS (
+    SELECT *,
+      `MONETARY_104W` / `FREQUENCY_104W` AS `AOV_104W`
+    FROM s0
+  ),
+  s2 AS (
+    SELECT *,
+      `MONETARY_156W` / `FREQUENCY_156W` AS `AOV_156W`
+    FROM s1
+  ),
+  s3 AS (
+    SELECT *,
+      `MONETARY_208W` / `FREQUENCY_208W` AS `AOV_208W`
+    FROM s2
+  ),
+  s4 AS (
+    SELECT *,
+      `MONETARY_260W` / `FREQUENCY_260W` AS `AOV_260W`
+    FROM s3
+  ),
+  s5 AS (
+    SELECT * EXCEPT (`ORDER_ID`), `ORDER_ID` AS `TOTAL_LIFETIME_ORDERS`
+    FROM s4
+  ),
+  s6 AS (
+    SELECT * EXCEPT (`AMOUNT_REFUNDED_EXCL_TAX`), `AMOUNT_REFUNDED_EXCL_TAX` AS `TOTAL_LIFETIME_RETURNS`
+    FROM s5
+  ),
+  s7 AS (
+    SELECT * EXCEPT (`DISCOUNT_AMOUNT`), `DISCOUNT_AMOUNT` AS `TOTAL_LIFETIME_DISCOUNT`
+    FROM s6
+  ),
+  s8 AS (
+    SELECT * EXCEPT (`AMOUNT_PAID_EXCL_TAX`), `AMOUNT_PAID_EXCL_TAX` AS `TOTAL_LIFETIME_DEMAND`
+    FROM s7
+  )
+  SELECT * FROM s8
+),
+
+-- [CLEAN] Discount %
+discount_2 AS (
+  WITH
+  s0 AS (
+    SELECT *,
+      `DISCOUNT_52W` / (`MONETARY_52W` + `DISCOUNT_52W`) AS `DISCOUNT_PCT_52W`
+    FROM aov
+  ),
+  s1 AS (
+    SELECT *,
+      `DISCOUNT_104W` / (`MONETARY_104W` + `DISCOUNT_104W`) AS `DISCOUNT_PCT_104W`
+    FROM s0
+  ),
+  s2 AS (
+    SELECT *,
+      `DISCOUNT_156W` / (`MONETARY_156W` + `DISCOUNT_156W`) AS `DISCOUNT_PCT_156W`
+    FROM s1
+  ),
+  s3 AS (
+    SELECT *,
+      `DISCOUNT_208W` / (`MONETARY_208W` + `DISCOUNT_208W`) AS `DISCOUNT_PCT_208W`
+    FROM s2
+  ),
+  s4 AS (
+    SELECT *,
+      `DISCOUNT_260W` / (`MONETARY_260W` + `DISCOUNT_260W`) AS `DISCOUNT_PCT_260W`
+    FROM s3
+  ),
+  s5 AS (
+    SELECT *,
+      `TOTAL_LIFETIME_DISCOUNT` / (`TOTAL_LIFETIME_DEMAND` + `TOTAL_LIFETIME_DISCOUNT`) AS `TOTAL_LIFETIME_DISCOUNT_PCT`
+    FROM s4
+  )
+  SELECT * FROM s5
+),
+
+-- [CLEAN] Ratio Calc
+ratio_calc AS (
+  WITH
+  s0 AS (
+    SELECT *,
+      CASE
+    WHEN COALESCE(`TOTAL_LIFETIME_DEMAND`, 0) = 0 THEN 0
+    ELSE `TOTAL_ONLINE_DEMAND` / `TOTAL_LIFETIME_DEMAND`
+    END AS `ONLINE_RATIO`
+    FROM discount_2
+  ),
+  s1 AS (
+    SELECT *,
+      CASE
+    WHEN COALESCE(`TOTAL_LIFETIME_DEMAND`, 0) = 0 THEN 0
+    ELSE `TOTAL_FULL_PRICE_DEMAND` / `TOTAL_LIFETIME_DEMAND`
+    END AS `FULL_PRICE_RATIO`
+    FROM s0
+  ),
+  s2 AS (
+    SELECT *,
+      CASE
+    WHEN COALESCE(`TOTAL_LIFETIME_DEMAND`, 0) = 0 THEN 0
+    ELSE `TOTAL_MARKDOWN_DEMAND` / `TOTAL_LIFETIME_DEMAND`
+    END AS `MARKDOWN_RATIO`
+    FROM s1
+  ),
+  s3 AS (
+    SELECT *,
+      CASE
+    WHEN `TOTAL_LIFETIME_DEMAND` = 0 THEN 0
+    ELSE `TOTAL_LIFETIME_DISCOUNT` / `TOTAL_LIFETIME_DEMAND`
+    END AS `DISCOUNT_RATIO`
+    FROM s2
+  ),
+  s4 AS (
+    SELECT *,
+      `FY_Q1_DEMAND` / `TOTAL_LIFETIME_DEMAND` AS `FY_Q1_DEMAND_RATIO`
+    FROM s3
+  ),
+  s5 AS (
+    SELECT *,
+      `FY_Q2_DEMAND` / `TOTAL_LIFETIME_DEMAND` AS `FY_Q2_DEMAND_RATIO`
+    FROM s4
+  ),
+  s6 AS (
+    SELECT *,
+      `FY_Q3_DEMAND` / `TOTAL_LIFETIME_DEMAND` AS `FY_Q3_DEMAND_RATIO`
+    FROM s5
+  ),
+  s7 AS (
+    SELECT *,
+      `FY_Q4_DEMAND` / `TOTAL_LIFETIME_DEMAND` AS `FY_Q4_DEMAND_RATIO`
+    FROM s6
+  )
+  SELECT * FROM s7
+),
+
+-- [CLEAN] Reordering
+reordering AS (
+  SELECT *
+  FROM ratio_calc
+)
+
+SELECT *
+FROM reordering

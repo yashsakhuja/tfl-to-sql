@@ -1,0 +1,2 @@
+-- Source: FST Ecom & Retail Sales
+-- No SQL needed; reference this table directly in downstream steps.

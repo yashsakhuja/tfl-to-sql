@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Generated SQL output (regenerate from source .tfl files, don't commit output)
+output_sql/
+
+# Local schema/credentials
+schema_cache.json
+*.local.json
+.env
+
+# Real production flows used for local testing — contains real business
+# data/schemas, never meant to be committed (see Tableau Prep Flows/ for
+# the one sample flow that IS checked in for tests).
+Test Collection/
+
+# OS
+.DS_Store

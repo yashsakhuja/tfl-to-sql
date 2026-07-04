@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tfl-to-sql"
+version = "0.2.0"
+description = "Convert Tableau Prep (.tfl) flows to BigQuery SQL / Dataform SQLX"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Proprietary" }
+dependencies = []
+
+[project.optional-dependencies]
+# Only needed for tools/fetch_schema.py and tools/dry_run_validate.py.
+# The core converter (tfl_to_sql.py) stays stdlib-only by design so it can be
+# copied and run anywhere without a build step.
+bigquery = ["google-cloud-bigquery>=3.20"]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+tfl-to-sql = "tfl_to_sql:main"
+
+[tool.setuptools]
+py-modules = ["tfl_to_sql"]
+
+[tool.setuptools.package-dir]
+"" = "Code"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 140
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+# E741 (ambiguous `l`) is ignored deliberately: the generator's SQL-emitting
+# code uses `l`/`r` for join sides and line-by-line indentation loops
+# throughout — renaming it everywhere would be pure churn on tested code.
+ignore = ["E741"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
