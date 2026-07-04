@@ -15,7 +15,8 @@ SQL back.
 > may prompt for sign-in. Switch it to public in the app's Streamlit Cloud
 > settings if you want anyone to open it without one.
 
-![tfl-to-sql web app](docs/screenshot.png)
+<img width="1435" height="807" alt="Screenshot 2026-07-04 at 22 48 40" src="https://github.com/user-attachments/assets/69be6d18-63ad-42a6-b75d-ccdc4f5b9e85" />
+
 <!-- Replace docs/screenshot.png with an actual screenshot of the running
 app (e.g. the results view after converting a flow) — drop the image file
 in a docs/ folder at the repo root and this will render on GitHub. -->
