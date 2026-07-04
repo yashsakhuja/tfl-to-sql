@@ -20,5 +20,9 @@ schema_cache.json
 # the one sample flow that IS checked in for tests).
 Test Collection/
 
+# Internal dev docs — not part of the published repo
+CLAUDE.md
+CONTRIBUTING.md
+
 # OS
 .DS_Store
